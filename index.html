@@ -18,6 +18,14 @@
             overflow: hidden;
         }
         
+        .mapboxgl-ctrl-bottom-left {
+            display: none;
+        }
+        
+        .mapboxgl-ctrl-bottom-right {
+            display: none;
+        }
+        
         #map {
             position: absolute;
             top: 0;
@@ -396,8 +404,13 @@
             center: [-85, 15],
             zoom: 3,
             projection: 'mercator',
-            customAttribution: 'Flight data © <a href="https://www.flightradar24.com" target="_blank">Flightradar24</a>'
+            customAttribution: 'Flight data © <a href="https://www.flightradar24.com" target="_blank">Flightradar24</a>',
+            attributionControl: false
         });
+        
+        map.addControl(new mapboxgl.AttributionControl({
+            compact: true
+        }), 'top-right');
         
         const AIRPORTS = {
             LAX: [-118.4085, 33.9416],
