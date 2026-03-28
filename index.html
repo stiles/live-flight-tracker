@@ -249,8 +249,25 @@
             font-size: 10px;
         }
         
+        .leg-arrived {
+            font-size: 9px;
+            font-weight: 600;
+            color: #2d6a4f;
+            background: rgba(45, 106, 79, 0.1);
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            letter-spacing: 0.02em;
+        }
+        
         .leg-item.past .leg-cities {
             color: #aaa;
+        }
+        
+        .leg-item.past .leg-arrived {
+            color: #999;
+            background: rgba(0,0,0,0.05);
         }
         
         .leg-item.active .leg-cities {
@@ -419,18 +436,24 @@
                 const isPast = now > arrive;
                 const isActive = now >= depart && now <= arrive;
                 
+                const posStatus = flightData && flightData.flights[leg.id]
+                    ? flightStatus(flightData.flights[leg.id])
+                    : null;
+                const landed = posStatus === 'landed' || isPast;
+                
                 const div = document.createElement('div');
-                div.className = 'leg-item' + (isPast ? ' past' : '') + (isActive ? ' active' : '');
+                div.className = 'leg-item' + (landed ? ' past' : '') + (isActive ? ' active' : '');
                 
                 const dateStr = new Date(leg.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 const flightLabel = leg.flight_number || 'TBD';
                 const depTime = formatLegTime(leg.depart);
                 const arrTime = formatLegTime(leg.arrive);
+                const arrivedBadge = landed ? `<span class="leg-arrived">Arrived</span>` : '';
                 
                 div.innerHTML = `
                     <div class="leg-date">${dateStr}</div>
                     <div class="leg-route">
-                        <div class="leg-cities">${leg.origin.code} → ${leg.destination.code}</div>
+                        <div class="leg-cities">${leg.origin.code} → ${leg.destination.code} ${arrivedBadge}</div>
                         <div class="leg-flight">${flightLabel} · ${leg.airline}</div>
                         <div class="leg-times">${depTime} – ${arrTime}</div>
                     </div>
@@ -696,6 +719,7 @@
                 const data = await response.json();
                 flightData = data;
                 updateFlightInfo(data);
+                renderItinerary();
                 updateMap(data);
                 if (!initialFitDone) {
                     fitMapBounds(data);
