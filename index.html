@@ -121,10 +121,133 @@
             font-style: italic;
         }
         
+        .flight-info.landed {
+            opacity: 0.92;
+        }
+        
+        .flight-info.landed .flight-header h2 {
+            color: #333;
+        }
+        
+        .arrived {
+            font-size: 11px;
+            color: #2d6a4f;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+        
+        .arrived-detail {
+            font-size: 10px;
+            color: #888;
+            margin-top: 4px;
+            line-height: 1.5;
+        }
+        
         .status {
             font-size: 10px;
             color: #aaa;
             margin-top: 8px;
+        }
+        
+        .itinerary-toggle {
+            display: inline-block;
+            font-size: 11px;
+            color: #666;
+            cursor: pointer;
+            margin-top: 6px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        .itinerary-toggle:hover {
+            color: #333;
+        }
+        
+        .itinerary-toggle .arrow {
+            display: inline-block;
+            transition: transform 0.2s;
+            font-size: 9px;
+            margin-right: 4px;
+        }
+        
+        .itinerary-toggle.open .arrow {
+            transform: rotate(90deg);
+        }
+        
+        .itinerary-drawer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .itinerary-drawer.open {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .itinerary-list {
+            margin-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            padding-top: 8px;
+        }
+        
+        .leg-item {
+            display: flex;
+            gap: 10px;
+            padding: 6px 0;
+            font-size: 11px;
+            line-height: 1.4;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            align-items: flex-start;
+        }
+        
+        .leg-item:last-child {
+            border-bottom: none;
+        }
+        
+        .leg-date {
+            flex-shrink: 0;
+            width: 46px;
+            font-weight: 600;
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+        
+        .leg-route {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .leg-route .leg-cities {
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+        }
+        
+        .leg-route .leg-flight {
+            color: #999;
+            font-size: 10px;
+        }
+        
+        .leg-route .leg-times {
+            color: #aaa;
+            font-size: 10px;
+        }
+        
+        .leg-item.past .leg-cities {
+            color: #aaa;
+        }
+        
+        .leg-item.active .leg-cities {
+            color: #111;
+        }
+        
+        .leg-item.active {
+            background: rgba(0,0,0,0.03);
+            border-radius: 4px;
+            padding: 6px 4px;
+            margin: 0 -4px;
         }
         
         @media (max-width: 600px) {
@@ -144,6 +267,10 @@
                 font-size: 12px;
                 margin-bottom: 8px;
             }
+            
+            .itinerary-drawer.open {
+                max-height: 240px;
+            }
         }
     </style>
 </head>
@@ -153,6 +280,12 @@
         <h1>Peru Trip Flight Tracker</h1>
         <div id="flights-container" class="flights-row"></div>
         <div class="status" id="status">Loading...</div>
+        <div class="itinerary-toggle" id="itinerary-toggle" onclick="toggleItinerary()">
+            <span class="arrow">&#9654;</span> Full itinerary
+        </div>
+        <div class="itinerary-drawer" id="itinerary-drawer">
+            <div class="itinerary-list" id="itinerary-list"></div>
+        </div>
     </div>
 
     <script>
@@ -171,20 +304,19 @@
         const AIRPORTS = {
             LAX: [-118.4085, 33.9416],
             MIA: [-80.2906, 25.7959],
-            LIM: [-77.1144, -12.0219]
+            LIM: [-77.1144, -12.0219],
+            CUZ: [-71.9388, -13.5357],
+            PEM: [-69.2285, -12.6136]
         };
         
-        const FLIGHT_COLORS = {
-            AA621: '#2563eb',
-            AA917: '#ea580c'
-        };
+        const ROUTE_COLORS = [
+            '#2563eb', '#ea580c', '#059669', '#8b5cf6',
+            '#d97706', '#dc2626', '#0891b2', '#6366f1'
+        ];
         
-        const FLIGHT_ROUTES = {
-            AA621: { origin: 'LAX', dest: 'MIA' },
-            AA917: { origin: 'MIA', dest: 'LIM' }
-        };
-        
+        let itinerary = null;
         let flightData = null;
+        let flightColorMap = {};
         let initialFitDone = false;
         
         function createPlaneIcon() {
@@ -230,22 +362,106 @@
             return coords;
         }
         
+        function flightStatus(flight) {
+            if (flight.status === 'landed' || flight.status === 'en_route' || flight.status === 'scheduled') {
+                return flight.status;
+            }
+            if ((flight.positions || []).length > 0) return 'en_route';
+            return 'scheduled';
+        }
+        
+        function destCode(route) {
+            const parts = route.split('-');
+            return parts[parts.length - 1] || '';
+        }
+        
+        function getFlightColor(legId) {
+            return flightColorMap[legId] || '#999';
+        }
+        
+        function toggleItinerary() {
+            const toggle = document.getElementById('itinerary-toggle');
+            const drawer = document.getElementById('itinerary-drawer');
+            toggle.classList.toggle('open');
+            drawer.classList.toggle('open');
+        }
+        
+        function formatLegTime(isoStr) {
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        }
+        
+        function renderItinerary() {
+            if (!itinerary) return;
+            const list = document.getElementById('itinerary-list');
+            const now = new Date();
+            list.innerHTML = '';
+            
+            itinerary.legs.forEach((leg, i) => {
+                const arrive = new Date(leg.arrive);
+                const depart = new Date(leg.depart);
+                const isPast = now > arrive;
+                const isActive = now >= depart && now <= arrive;
+                
+                const div = document.createElement('div');
+                div.className = 'leg-item' + (isPast ? ' past' : '') + (isActive ? ' active' : '');
+                
+                const dateStr = new Date(leg.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                const flightLabel = leg.flight_number || 'TBD';
+                const depTime = formatLegTime(leg.depart);
+                const arrTime = formatLegTime(leg.arrive);
+                
+                div.innerHTML = `
+                    <div class="leg-date">${dateStr}</div>
+                    <div class="leg-route">
+                        <div class="leg-cities">${leg.origin.code} → ${leg.destination.code}</div>
+                        <div class="leg-flight">${flightLabel} · ${leg.airline}</div>
+                        <div class="leg-times">${depTime} – ${arrTime}</div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
         function updateFlightInfo(data) {
             const container = document.getElementById('flights-container');
             container.innerHTML = '';
             
-            Object.keys(data.flights).forEach(flightNum => {
-                const flight = data.flights[flightNum];
-                const positions = flight.positions;
+            const flightKeys = Object.keys(data.flights);
+            if (flightKeys.length === 0) {
+                container.innerHTML = '<div class="waiting">No active flights right now</div>';
+            }
+            
+            flightKeys.forEach(legId => {
+                const flight = data.flights[legId];
+                const positions = flight.positions || [];
                 const lastPos = positions[positions.length - 1];
+                const status = flightStatus(flight);
+                const color = getFlightColor(legId);
                 
                 const div = document.createElement('div');
-                div.className = `flight-info ${flightNum.toLowerCase()}`;
+                div.className = `flight-info${status === 'landed' ? ' landed' : ''}`;
+                div.style.borderLeftColor = color;
                 
                 const routeParts = flight.route.split('-');
                 const routeDisplay = routeParts.join(' → ');
+                const dest = destCode(flight.route);
                 
-                if (lastPos) {
+                const leg = itinerary ? itinerary.legs.find(l => l.id === legId) : null;
+                const displayName = leg ? (leg.flight_number || legId) : legId;
+                
+                if (status === 'landed' && lastPos) {
+                    const landedTime = new Date(lastPos.ts * 1000);
+                    const timeStr = landedTime.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    div.innerHTML = `
+                        <div class="flight-header">
+                            <h2>${displayName}</h2>
+                            <span class="route">${routeDisplay}</span>
+                        </div>
+                        <div class="arrived">Arrived ${dest}</div>
+                        <div class="arrived-detail">Last track ${timeStr}</div>
+                    `;
+                } else if (status === 'en_route' && lastPos) {
                     const alt = lastPos.alt ? Math.round(lastPos.alt).toLocaleString() : '—';
                     const speed = lastPos.speed ? Math.round(lastPos.speed) : '—';
                     const timeSince = Math.round((Date.now() / 1000 - lastPos.ts) / 60);
@@ -253,7 +469,7 @@
                     
                     div.innerHTML = `
                         <div class="flight-header">
-                            <h2>${flightNum}</h2>
+                            <h2>${displayName}</h2>
                             <span class="route">${routeDisplay}</span>
                         </div>
                         <div class="details">
@@ -265,7 +481,7 @@
                 } else {
                     div.innerHTML = `
                         <div class="flight-header">
-                            <h2>${flightNum}</h2>
+                            <h2>${displayName}</h2>
                             <span class="route">${routeDisplay}</span>
                         </div>
                         <div class="waiting">Waiting for departure</div>
@@ -285,19 +501,28 @@
             }
         }
         
+        function removePlaneForFlight(flightNum) {
+            if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
+            if (map.getLayer(`plane-${flightNum}`)) map.removeLayer(`plane-${flightNum}`);
+            if (map.getSource(`plane-${flightNum}`)) map.removeSource(`plane-${flightNum}`);
+        }
+        
         function updateMap(data) {
-            Object.keys(data.flights).forEach(flightNum => {
-                const flight = data.flights[flightNum];
-                const positions = flight.positions;
+            Object.keys(data.flights).forEach(legId => {
+                const flight = data.flights[legId];
+                const positions = flight.positions || [];
+                const status = flightStatus(flight);
+                const color = getFlightColor(legId);
                 
                 if (positions.length === 0) {
+                    removePlaneForFlight(legId);
                     const routeParts = flight.route.split('-');
                     const origin = AIRPORTS[routeParts[0]];
-                    const dest = AIRPORTS[routeParts[1]];
+                    const dest = AIRPORTS[routeParts[routeParts.length - 1]];
                     
                     if (origin && dest) {
-                        if (!map.getSource(`planned-${flightNum}`)) {
-                            map.addSource(`planned-${flightNum}`, {
+                        if (!map.getSource(`planned-${legId}`)) {
+                            map.addSource(`planned-${legId}`, {
                                 type: 'geojson',
                                 data: {
                                     type: 'Feature',
@@ -309,9 +534,9 @@
                             });
                             
                             map.addLayer({
-                                id: `planned-${flightNum}`,
+                                id: `planned-${legId}`,
                                 type: 'line',
-                                source: `planned-${flightNum}`,
+                                source: `planned-${legId}`,
                                 paint: {
                                     'line-color': '#999',
                                     'line-width': 1,
@@ -322,16 +547,17 @@
                         }
                     }
                 } else {
-                    if (map.getLayer(`planned-${flightNum}`)) {
-                        map.removeLayer(`planned-${flightNum}`);
-                        map.removeSource(`planned-${flightNum}`);
+                    if (map.getLayer(`planned-${legId}`)) {
+                        map.removeLayer(`planned-${legId}`);
+                        map.removeSource(`planned-${legId}`);
                     }
                     
                     const coords = positions.map(p => [p.lon, p.lat]);
                     const lastPos = positions[positions.length - 1];
+                    const lineOpacity = status === 'landed' ? 0.5 : 0.85;
                     
-                    if (map.getSource(`route-${flightNum}`)) {
-                        map.getSource(`route-${flightNum}`).setData({
+                    if (map.getSource(`route-${legId}`)) {
+                        map.getSource(`route-${legId}`).setData({
                             type: 'Feature',
                             geometry: {
                                 type: 'LineString',
@@ -339,7 +565,7 @@
                             }
                         });
                     } else {
-                        map.addSource(`route-${flightNum}`, {
+                        map.addSource(`route-${legId}`, {
                             type: 'geojson',
                             data: {
                                 type: 'Feature',
@@ -351,19 +577,25 @@
                         });
                         
                         map.addLayer({
-                            id: `route-${flightNum}`,
+                            id: `route-${legId}`,
                             type: 'line',
-                            source: `route-${flightNum}`,
+                            source: `route-${legId}`,
                             paint: {
-                                'line-color': FLIGHT_COLORS[flightNum],
+                                'line-color': color,
                                 'line-width': 3,
-                                'line-opacity': 0.8
+                                'line-opacity': lineOpacity
                             }
                         });
                     }
                     
-                    if (map.getSource(`plane-${flightNum}`)) {
-                        map.getSource(`plane-${flightNum}`).setData({
+                    if (map.getLayer(`route-${legId}`)) {
+                        map.setPaintProperty(`route-${legId}`, 'line-opacity', lineOpacity);
+                    }
+                    
+                    if (status === 'landed') {
+                        removePlaneForFlight(legId);
+                    } else if (map.getSource(`plane-${legId}`)) {
+                        map.getSource(`plane-${legId}`).setData({
                             type: 'Feature',
                             geometry: {
                                 type: 'Point',
@@ -374,7 +606,7 @@
                             }
                         });
                     } else {
-                        map.addSource(`plane-${flightNum}`, {
+                        map.addSource(`plane-${legId}`, {
                             type: 'geojson',
                             data: {
                                 type: 'Feature',
@@ -389,9 +621,9 @@
                         });
                         
                         map.addLayer({
-                            id: `plane-${flightNum}`,
+                            id: `plane-${legId}`,
                             type: 'symbol',
-                            source: `plane-${flightNum}`,
+                            source: `plane-${legId}`,
                             layout: {
                                 'icon-image': 'plane-icon',
                                 'icon-size': 1,
@@ -409,22 +641,37 @@
         function fitMapBounds(data) {
             const bounds = new mapboxgl.LngLatBounds();
             
-            Object.keys(data.flights).forEach(flightNum => {
-                const flight = data.flights[flightNum];
-                const route = FLIGHT_ROUTES[flightNum];
-                const positions = flight.positions;
+            Object.keys(data.flights).forEach(legId => {
+                const flight = data.flights[legId];
+                const positions = flight.positions || [];
+                const routeParts = flight.route.split('-');
+                const origin = AIRPORTS[routeParts[0]];
+                const dest = AIRPORTS[routeParts[routeParts.length - 1]];
                 
                 if (positions.length > 0) {
                     positions.forEach(p => bounds.extend([p.lon, p.lat]));
-                    bounds.extend(AIRPORTS[route.dest]);
+                    if (dest) bounds.extend(dest);
                 } else {
-                    bounds.extend(AIRPORTS[route.origin]);
-                    bounds.extend(AIRPORTS[route.dest]);
+                    if (origin) bounds.extend(origin);
+                    if (dest) bounds.extend(dest);
                 }
             });
             
             if (!bounds.isEmpty()) {
                 map.fitBounds(bounds, { padding: 60, maxZoom: 8 });
+            }
+        }
+        
+        async function fetchItinerary() {
+            try {
+                const response = await fetch('data/itinerary.json?' + Date.now());
+                itinerary = await response.json();
+                itinerary.legs.forEach((leg, i) => {
+                    flightColorMap[leg.id] = ROUTE_COLORS[i % ROUTE_COLORS.length];
+                });
+                renderItinerary();
+            } catch (e) {
+                console.warn('Could not load itinerary:', e);
             }
         }
         
@@ -445,22 +692,29 @@
             }
         }
         
-        map.on('load', () => {
-            const planeImg = createPlaneIcon();
-            planeImg.onload = () => {
-                map.addImage('plane-icon', planeImg, { sdf: false });
-            };
+        function addAirportMarkers() {
+            const usedCodes = new Set();
+            if (itinerary) {
+                itinerary.legs.forEach(leg => {
+                    usedCodes.add(leg.origin.code);
+                    usedCodes.add(leg.destination.code);
+                });
+            }
+            if (flightData) {
+                Object.values(flightData.flights).forEach(f => {
+                    f.route.split('-').forEach(c => usedCodes.add(c));
+                });
+            }
             
-            Object.keys(AIRPORTS).forEach(code => {
+            usedCodes.forEach(code => {
                 const coords = AIRPORTS[code];
+                if (!coords || map.getSource(`airport-${code}`)) return;
+                
                 map.addSource(`airport-${code}`, {
                     type: 'geojson',
                     data: {
                         type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: coords
-                        }
+                        geometry: { type: 'Point', coordinates: coords }
                     }
                 });
                 
@@ -469,7 +723,7 @@
                     type: 'circle',
                     source: `airport-${code}`,
                     paint: {
-                        'circle-radius': 6,
+                        'circle-radius': 5,
                         'circle-color': '#333',
                         'circle-stroke-width': 2,
                         'circle-stroke-color': '#fff'
@@ -494,12 +748,21 @@
                     }
                 });
             });
+        }
+        
+        map.on('load', async () => {
+            const planeImg = createPlaneIcon();
+            planeImg.onload = () => {
+                map.addImage('plane-icon', planeImg, { sdf: false });
+            };
             
-            fetchPositions();
+            await fetchItinerary();
+            addAirportMarkers();
+            await fetchPositions();
+            addAirportMarkers();
+            
             setInterval(fetchPositions, 60000);
         });
     </script>
-</head>
-<body>
 </body>
 </html>

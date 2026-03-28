@@ -1,0 +1,109 @@
+{
+  "trip": "Peru Trip 2026",
+  "legs": [
+    {
+      "id": "AA621",
+      "airline": "American Airlines",
+      "flight_number": "AA621",
+      "callsign": "AAL0621",
+      "route": "LAX-MIA",
+      "origin": {"code": "LAX", "name": "Los Angeles"},
+      "destination": {"code": "MIA", "name": "Miami"},
+      "date": "2026-03-28",
+      "depart": "2026-03-28T06:00:00-07:00",
+      "arrive": "2026-03-28T14:04:00-04:00",
+      "notes": "Airport at 3:00 AM"
+    },
+    {
+      "id": "AA917",
+      "airline": "American Airlines",
+      "flight_number": "AA917",
+      "callsign": "AAL0917",
+      "route": "MIA-LIM",
+      "origin": {"code": "MIA", "name": "Miami"},
+      "destination": {"code": "LIM", "name": "Lima"},
+      "date": "2026-03-28",
+      "depart": "2026-03-28T17:30:00-04:00",
+      "arrive": "2026-03-28T22:20:00-05:00",
+      "notes": "3.5 hour layover in MIA"
+    },
+    {
+      "id": "H85721-LIM-CUZ",
+      "airline": "SKY Airline Peru",
+      "flight_number": "H85721",
+      "callsign": "SKU5721",
+      "route": "LIM-CUZ",
+      "origin": {"code": "LIM", "name": "Lima"},
+      "destination": {"code": "CUZ", "name": "Cusco"},
+      "date": "2026-03-30",
+      "depart": "2026-03-30T06:25:00-05:00",
+      "arrive": "2026-03-30T07:50:00-05:00",
+      "notes": null
+    },
+    {
+      "id": "H85721-CUZ-PEM",
+      "airline": "SKY Airline Peru",
+      "flight_number": "H85721",
+      "callsign": "SKU5721",
+      "route": "CUZ-PEM",
+      "origin": {"code": "CUZ", "name": "Cusco"},
+      "destination": {"code": "PEM", "name": "Puerto Maldonado"},
+      "date": "2026-04-02",
+      "depart": "2026-04-02T08:25:00-05:00",
+      "arrive": "2026-04-02T09:25:00-05:00",
+      "notes": "Fly to Amazon basin, motorized canoe into jungle"
+    },
+    {
+      "id": "H85722-PEM-CUZ",
+      "airline": "SKY Airline Peru",
+      "flight_number": "H85722",
+      "callsign": "SKU5722",
+      "route": "PEM-CUZ",
+      "origin": {"code": "PEM", "name": "Puerto Maldonado"},
+      "destination": {"code": "CUZ", "name": "Cusco"},
+      "date": "2026-04-04",
+      "depart": "2026-04-04T10:05:00-05:00",
+      "arrive": "2026-04-04T10:55:00-05:00",
+      "notes": "Connecting to CUZ-LIM"
+    },
+    {
+      "id": "CUZ-LIM",
+      "airline": "SKY Airline Peru",
+      "flight_number": null,
+      "callsign": null,
+      "route": "CUZ-LIM",
+      "origin": {"code": "CUZ", "name": "Cusco"},
+      "destination": {"code": "LIM", "name": "Lima"},
+      "date": "2026-04-04",
+      "depart": "2026-04-04T11:35:00-05:00",
+      "arrive": "2026-04-04T13:20:00-05:00",
+      "notes": "Afternoon and evening in Lima"
+    },
+    {
+      "id": "AA988",
+      "airline": "American Airlines",
+      "flight_number": "AA988",
+      "callsign": "AAL0988",
+      "route": "LIM-MIA",
+      "origin": {"code": "LIM", "name": "Lima"},
+      "destination": {"code": "MIA", "name": "Miami"},
+      "date": "2026-04-04",
+      "depart": "2026-04-04T23:45:00-05:00",
+      "arrive": "2026-04-05T06:45:00-04:00",
+      "notes": "Red-eye"
+    },
+    {
+      "id": "AA840",
+      "airline": "American Airlines",
+      "flight_number": "AA840",
+      "callsign": "AAL0840",
+      "route": "MIA-LAX",
+      "origin": {"code": "MIA", "name": "Miami"},
+      "destination": {"code": "LAX", "name": "Los Angeles"},
+      "date": "2026-04-05",
+      "depart": "2026-04-05T13:40:00-04:00",
+      "arrive": "2026-04-05T16:42:00-07:00",
+      "notes": "Final leg home"
+    }
+  ]
+}
