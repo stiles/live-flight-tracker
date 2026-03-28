@@ -916,9 +916,13 @@
             }
             
             if (!bounds.isEmpty()) {
+                const isMobile = window.innerWidth <= 600;
+                const padding = isMobile
+                    ? { top: 40, bottom: 280, left: 20, right: 20 }
+                    : { top: 80, bottom: 200, left: 40, right: 40 };
                 map.fitBounds(bounds, {
-                    padding: { top: 80, bottom: 200, left: 40, right: 40 },
-                    maxZoom: 3.2
+                    padding,
+                    maxZoom: 3.1
                 });
             }
         }
