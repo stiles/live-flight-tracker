@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peru Trip Flight Tracker</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-width: 350px;
+            font-size: 14px;
+            z-index: 1;
+        }
+        
+        .info-panel h1 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #222;
+        }
+        
+        .flight-info {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #333;
+        }
+        
+        .flight-info.aa621 {
+            border-left-color: #2563eb;
+        }
+        
+        .flight-info.aa917 {
+            border-left-color: #ea580c;
+        }
+        
+        .flight-info h2 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .flight-info .route {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .flight-info .details {
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .status {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .legend {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 600px) {
+            .info-panel {
+                left: 10px;
+                right: 10px;
+                max-width: none;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <h1>Peru Trip Flight Tracker</h1>
+        <div id="flights-container"></div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2563eb;"></div>
+                <span>AA621 LAX → MIA</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ea580c;"></div>
+                <span>AA917 MIA → LIM</span>
+            </div>
+        </div>
+        <div class="status" id="status">Loading...</div>
+    </div>
+
+    <script>
+        const MAPBOX_TOKEN = 'PERSONAL_MAPBOX_ACCESS_TOKEN';
+        
+        mapboxgl.accessToken = MAPBOX_TOKEN;
+        
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: [-85, 15],
+            zoom: 3,
+            projection: 'mercator'
+        });
+        
+        const AIRPORTS = {
+            LAX: [-118.4085, 33.9416],
+            MIA: [-80.2906, 25.7959],
+            LIM: [-77.1144, -12.0219]
+        };
+        
+        const FLIGHT_COLORS = {
+            AA621: '#2563eb',
+            AA917: '#ea580c'
+        };
+        
+        let flightData = null;
+        
+        function greatCircle(start, end, numPoints = 100) {
+            const [lon1, lat1] = start;
+            const [lon2, lat2] = end;
+            const coords = [];
+            
+            for (let i = 0; i <= numPoints; i++) {
+                const f = i / numPoints;
+                const lat1Rad = lat1 * Math.PI / 180;
+                const lat2Rad = lat2 * Math.PI / 180;
+                const lon1Rad = lon1 * Math.PI / 180;
+                const lon2Rad = lon2 * Math.PI / 180;
+                
+                const a = Math.sin((1 - f) * Math.acos(Math.sin(lat1Rad) * Math.sin(lat2Rad) + 
+                          Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lon2Rad - lon1Rad))) / 
+                          Math.sin(Math.acos(Math.sin(lat1Rad) * Math.sin(lat2Rad) + 
+                          Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lon2Rad - lon1Rad)));
+                const b = Math.sin(f * Math.acos(Math.sin(lat1Rad) * Math.sin(lat2Rad) + 
+                          Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lon2Rad - lon1Rad))) / 
+                          Math.sin(Math.acos(Math.sin(lat1Rad) * Math.sin(lat2Rad) + 
+                          Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lon2Rad - lon1Rad)));
+                
+                const x = a * Math.cos(lat1Rad) * Math.cos(lon1Rad) + b * Math.cos(lat2Rad) * Math.cos(lon2Rad);
+                const y = a * Math.cos(lat1Rad) * Math.sin(lon1Rad) + b * Math.cos(lat2Rad) * Math.sin(lon2Rad);
+                const z = a * Math.sin(lat1Rad) + b * Math.sin(lat2Rad);
+                
+                const latRad = Math.atan2(z, Math.sqrt(x * x + y * y));
+                const lonRad = Math.atan2(y, x);
+                
+                coords.push([lonRad * 180 / Math.PI, latRad * 180 / Math.PI]);
+            }
+            
+            return coords;
+        }
+        
+        function updateFlightInfo(data) {
+            const container = document.getElementById('flights-container');
+            container.innerHTML = '';
+            
+            Object.keys(data.flights).forEach(flightNum => {
+                const flight = data.flights[flightNum];
+                const positions = flight.positions;
+                const lastPos = positions[positions.length - 1];
+                
+                const div = document.createElement('div');
+                div.className = `flight-info ${flightNum.toLowerCase()}`;
+                
+                if (lastPos) {
+                    const alt = lastPos.alt ? `${Math.round(lastPos.alt).toLocaleString()} ft` : 'N/A';
+                    const speed = lastPos.speed ? `${Math.round(lastPos.speed)} kt` : 'N/A';
+                    const timeSince = Math.round((Date.now() / 1000 - lastPos.ts) / 60);
+                    
+                    div.innerHTML = `
+                        <h2>${flightNum}</h2>
+                        <div class="route">${flight.route}</div>
+                        <div class="details">
+                            <div>Altitude: ${alt}</div>
+                            <div>Speed: ${speed}</div>
+                            <div>Last update: ${timeSince} min ago</div>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <h2>${flightNum}</h2>
+                        <div class="route">${flight.route}</div>
+                        <div class="details">Waiting for takeoff...</div>
+                    `;
+                }
+                
+                container.appendChild(div);
+            });
+            
+            const statusDiv = document.getElementById('status');
+            const updated = data.updated ? new Date(data.updated) : null;
+            if (updated) {
+                const mins = Math.round((Date.now() - updated.getTime()) / 60000);
+                statusDiv.textContent = `Last checked: ${mins} min ago`;
+            } else {
+                statusDiv.textContent = 'Waiting for first update...';
+            }
+        }
+        
+        function updateMap(data) {
+            Object.keys(data.flights).forEach(flightNum => {
+                const flight = data.flights[flightNum];
+                const positions = flight.positions;
+                
+                if (positions.length > 0) {
+                    const coords = positions.map(p => [p.lon, p.lat]);
+                    const lastPos = positions[positions.length - 1];
+                    
+                    if (map.getSource(`route-${flightNum}`)) {
+                        map.getSource(`route-${flightNum}`).setData({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: coords
+                            }
+                        });
+                    } else {
+                        map.addSource(`route-${flightNum}`, {
+                            type: 'geojson',
+                            data: {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'LineString',
+                                    coordinates: coords
+                                }
+                            }
+                        });
+                        
+                        map.addLayer({
+                            id: `route-${flightNum}`,
+                            type: 'line',
+                            source: `route-${flightNum}`,
+                            paint: {
+                                'line-color': FLIGHT_COLORS[flightNum],
+                                'line-width': 3,
+                                'line-opacity': 0.8
+                            }
+                        });
+                    }
+                    
+                    if (map.getSource(`plane-${flightNum}`)) {
+                        map.getSource(`plane-${flightNum}`).setData({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [lastPos.lon, lastPos.lat]
+                            },
+                            properties: {
+                                heading: lastPos.heading || 0
+                            }
+                        });
+                    } else {
+                        map.addSource(`plane-${flightNum}`, {
+                            type: 'geojson',
+                            data: {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lastPos.lon, lastPos.lat]
+                                },
+                                properties: {
+                                    heading: lastPos.heading || 0
+                                }
+                            }
+                        });
+                        
+                        map.addLayer({
+                            id: `plane-${flightNum}`,
+                            type: 'symbol',
+                            source: `plane-${flightNum}`,
+                            layout: {
+                                'icon-image': 'airport',
+                                'icon-size': 1.5,
+                                'icon-rotate': ['get', 'heading'],
+                                'icon-rotation-alignment': 'map',
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true
+                            },
+                            paint: {
+                                'icon-color': FLIGHT_COLORS[flightNum]
+                            }
+                        });
+                    }
+                }
+            });
+        }
+        
+        async function fetchPositions() {
+            try {
+                const response = await fetch('data/positions.json?' + Date.now());
+                const data = await response.json();
+                flightData = data;
+                updateFlightInfo(data);
+                updateMap(data);
+            } catch (error) {
+                console.error('Error fetching positions:', error);
+                document.getElementById('status').textContent = 'Error loading data';
+            }
+        }
+        
+        map.on('load', () => {
+            map.addSource('planned-routes', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: [
+                        {
+                            type: 'Feature',
+                            properties: { flight: 'AA621' },
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: greatCircle(AIRPORTS.LAX, AIRPORTS.MIA)
+                            }
+                        },
+                        {
+                            type: 'Feature',
+                            properties: { flight: 'AA917' },
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: greatCircle(AIRPORTS.MIA, AIRPORTS.LIM)
+                            }
+                        }
+                    ]
+                }
+            });
+            
+            map.addLayer({
+                id: 'planned-routes',
+                type: 'line',
+                source: 'planned-routes',
+                paint: {
+                    'line-color': '#999',
+                    'line-width': 1,
+                    'line-dasharray': [4, 4],
+                    'line-opacity': 0.5
+                }
+            });
+            
+            Object.keys(AIRPORTS).forEach(code => {
+                const coords = AIRPORTS[code];
+                map.addSource(`airport-${code}`, {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: coords
+                        }
+                    }
+                });
+                
+                map.addLayer({
+                    id: `airport-${code}-circle`,
+                    type: 'circle',
+                    source: `airport-${code}`,
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#333',
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+                
+                map.addLayer({
+                    id: `airport-${code}-label`,
+                    type: 'symbol',
+                    source: `airport-${code}`,
+                    layout: {
+                        'text-field': code,
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 12,
+                        'text-offset': [0, -1.5],
+                        'text-anchor': 'top'
+                    },
+                    paint: {
+                        'text-color': '#333',
+                        'text-halo-color': '#fff',
+                        'text-halo-width': 2
+                    }
+                });
+            });
+            
+            fetchPositions();
+            setInterval(fetchPositions, 60000);
+        });
+    </script>
+</head>
+<body>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "flights": {
+    "AA621": {
+      "route": "LAX-MIA",
+      "positions": []
+    },
+    "AA917": {
+      "route": "MIA-LIM",
+      "positions": []
+    }
+  },
+  "updated": null
+}
