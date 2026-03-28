@@ -53,8 +53,6 @@ def fetch_live_positions():
         "Accept-Version": "v1",
     }
     params = {"callsigns": ",".join(FLIGHTS)}
-    
-    print(f"Fetching from: {url} (sandbox={USE_SANDBOX})")
 
     try:
         response = requests.get(url, headers=headers, params=params, timeout=10)
@@ -86,27 +84,21 @@ def main():
     flights_in_response = api_response.get("data", [])
     
     if not flights_in_response:
-        print(f"No flights found in API response. Full response: {json.dumps(api_response, indent=2)}")
+        print("No flights found in API response")
         save_positions(data)
         return
-
-    print(f"Found {len(flights_in_response)} flight(s) in response")
     
     for flight in flights_in_response:
         callsign = flight.get("callsign", "").strip()
-        flight_number = flight.get("flight_number", "").strip()
-        
-        print(f"Flight: callsign={callsign}, flight_number={flight_number}")
-        print(f"Position data: lat={flight.get('lat')}, lon={flight.get('lon')}, alt={flight.get('alt')}")
         
         if callsign in FLIGHTS:
             display_name = FLIGHT_DISPLAY[callsign]["name"]
             if flight.get("lat") and flight.get("lon"):
                 position = extract_position(flight)
                 data["flights"][display_name]["positions"].append(position)
-                print(f"Added position for {display_name} ({callsign}): lat={position['lat']}, lon={position['lon']}, alt={position['alt']}")
+                print(f"Added position for {display_name}: lat={position['lat']:.5f}, lon={position['lon']:.5f}, alt={position['alt']} ft")
             else:
-                print(f"{display_name} ({callsign}) found but no position data")
+                print(f"{display_name} found but no position data (not airborne yet)")
 
     data["updated"] = datetime.now(timezone.utc).isoformat()
     save_positions(data)
