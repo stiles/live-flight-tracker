@@ -547,9 +547,19 @@
         }
         
         function getNextLeg() {
-            if (!itinerary) return null;
+            if (!itinerary || !flightData) return null;
             const now = new Date();
-            return itinerary.legs.find(leg => new Date(leg.depart) > now) || null;
+            const today = now.toISOString().split('T')[0];
+            
+            return itinerary.legs.find(leg => {
+                const legDate = leg.date;
+                const departTime = new Date(leg.depart);
+                const isToday = legDate === today;
+                const isFuture = departTime > now;
+                const isTracked = flightData.flights[leg.id];
+                
+                return isFuture && (isToday || isTracked);
+            }) || null;
         }
         
         function getLastLandedLeg() {
