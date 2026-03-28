@@ -60,14 +60,21 @@
             background: rgba(0, 0, 0, 0.03);
             border-radius: 6px;
             border-left: 3px solid #ccc;
+            transition: box-shadow 0.2s, background 0.2s;
         }
         
-        .flight-info.aa621 {
-            border-left-color: #2563eb;
+        .flight-info.en-route {
+            background: rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border-left-width: 4px;
         }
         
-        .flight-info.aa917 {
-            border-left-color: #ea580c;
+        .flight-info.en-route .flight-header h2 {
+            font-size: 16px;
+        }
+        
+        .flight-info.en-route .detail-value {
+            color: #111;
         }
         
         .flight-info .flight-header {
@@ -150,16 +157,23 @@
         }
         
         .itinerary-toggle {
-            display: inline-block;
+            display: block;
             font-size: 11px;
-            color: #666;
+            font-weight: 600;
+            color: #555;
+            letter-spacing: 0.02em;
             cursor: pointer;
-            margin-top: 6px;
+            margin-top: 10px;
+            padding: 7px 10px;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 6px;
             user-select: none;
             -webkit-user-select: none;
+            transition: background 0.15s;
         }
         
         .itinerary-toggle:hover {
+            background: rgba(0, 0, 0, 0.07);
             color: #333;
         }
         
@@ -167,7 +181,7 @@
             display: inline-block;
             transition: transform 0.2s;
             font-size: 9px;
-            margin-right: 4px;
+            margin-right: 5px;
         }
         
         .itinerary-toggle.open .arrow {
@@ -281,7 +295,7 @@
         <div id="flights-container" class="flights-row"></div>
         <div class="status" id="status">Loading...</div>
         <div class="itinerary-toggle" id="itinerary-toggle" onclick="toggleItinerary()">
-            <span class="arrow">&#9654;</span> Full itinerary
+            <span class="arrow">&#9654;</span> See all flights!
         </div>
         <div class="itinerary-drawer" id="itinerary-drawer">
             <div class="itinerary-list" id="itinerary-list"></div>
@@ -309,14 +323,11 @@
             PEM: [-69.2285, -12.6136]
         };
         
-        const ROUTE_COLORS = [
-            '#2563eb', '#ea580c', '#059669', '#8b5cf6',
-            '#d97706', '#dc2626', '#0891b2', '#6366f1'
-        ];
+        const LIVE_COLOR = '#C8413C';
         
         let itinerary = null;
         let flightData = null;
-        let flightColorMap = {};
+        
         let initialFitDone = false;
         
         function createPlaneIcon() {
@@ -376,7 +387,11 @@
         }
         
         function getFlightColor(legId) {
-            return flightColorMap[legId] || '#999';
+            if (!flightData) return '#999';
+            const flight = flightData.flights[legId];
+            if (flight && flightStatus(flight) === 'en_route') return LIVE_COLOR;
+            if (flight && flightStatus(flight) === 'landed') return '#999';
+            return '#999';
         }
         
         function toggleItinerary() {
@@ -440,7 +455,8 @@
                 const color = getFlightColor(legId);
                 
                 const div = document.createElement('div');
-                div.className = `flight-info${status === 'landed' ? ' landed' : ''}`;
+                const statusClass = status === 'landed' ? ' landed' : status === 'en_route' ? ' en-route' : '';
+                div.className = `flight-info${statusClass}`;
                 div.style.borderLeftColor = color;
                 
                 const routeParts = flight.route.split('-');
@@ -666,9 +682,7 @@
             try {
                 const response = await fetch('data/itinerary.json?' + Date.now());
                 itinerary = await response.json();
-                itinerary.legs.forEach((leg, i) => {
-                    flightColorMap[leg.id] = ROUTE_COLORS[i % ROUTE_COLORS.length];
-                });
+                
                 renderItinerary();
             } catch (e) {
                 console.warn('Could not load itinerary:', e);
