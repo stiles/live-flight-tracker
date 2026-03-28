@@ -12,7 +12,11 @@ import requests
 API_KEY = os.getenv("FLIGHTRADAR_API_KEY")
 USE_SANDBOX = os.getenv("USE_SANDBOX", "false").lower() == "true"
 BASE_URL = "https://fr24api.flightradar24.com/api"
-FLIGHTS = ["AA621", "AA917"]
+FLIGHTS = ["AAL0621", "AAL0917"]
+FLIGHT_DISPLAY = {
+    "AAL0621": {"name": "AA621", "route": "LAX-MIA"},
+    "AAL0917": {"name": "AA917", "route": "MIA-LIM"}
+}
 DATA_FILE = "data/positions.json"
 
 
@@ -48,7 +52,7 @@ def fetch_live_positions():
         "Authorization": f"Bearer {API_KEY}",
         "Accept-Version": "v1",
     }
-    params = {"flights": ",".join(FLIGHTS)}
+    params = {"callsigns": ",".join(FLIGHTS)}
     
     print(f"Fetching from: {url} (sandbox={USE_SANDBOX})")
 
@@ -65,11 +69,11 @@ def extract_position(flight_data):
     """Extract position data from FR24 API response"""
     return {
         "ts": int(datetime.now(timezone.utc).timestamp()),
-        "lat": flight_data.get("latitude"),
-        "lon": flight_data.get("longitude"),
-        "alt": flight_data.get("altitude"),
-        "speed": flight_data.get("ground_speed"),
-        "heading": flight_data.get("heading"),
+        "lat": flight_data.get("lat"),
+        "lon": flight_data.get("lon"),
+        "alt": flight_data.get("alt"),
+        "speed": flight_data.get("gspeed"),
+        "heading": flight_data.get("track"),
     }
 
 
@@ -77,24 +81,32 @@ def main():
     data = load_positions()
     api_response = fetch_live_positions()
 
+    print(f"API response keys: {list(api_response.keys())}")
+    
     flights_in_response = api_response.get("data", [])
     
     if not flights_in_response:
-        print("No flights found in API response")
+        print(f"No flights found in API response. Full response: {json.dumps(api_response, indent=2)}")
         save_positions(data)
         return
 
+    print(f"Found {len(flights_in_response)} flight(s) in response")
+    
     for flight in flights_in_response:
         callsign = flight.get("callsign", "").strip()
-        flight_number = flight.get("flight_number")
+        flight_number = flight.get("flight_number", "").strip()
         
-        if flight_number in FLIGHTS:
-            if flight.get("latitude") and flight.get("longitude"):
+        print(f"Flight: callsign={callsign}, flight_number={flight_number}")
+        print(f"Position data: lat={flight.get('lat')}, lon={flight.get('lon')}, alt={flight.get('alt')}")
+        
+        if callsign in FLIGHTS:
+            display_name = FLIGHT_DISPLAY[callsign]["name"]
+            if flight.get("lat") and flight.get("lon"):
                 position = extract_position(flight)
-                data["flights"][flight_number]["positions"].append(position)
-                print(f"Added position for {flight_number}: lat={position['lat']}, lon={position['lon']}, alt={position['alt']}")
+                data["flights"][display_name]["positions"].append(position)
+                print(f"Added position for {display_name} ({callsign}): lat={position['lat']}, lon={position['lon']}, alt={position['alt']}")
             else:
-                print(f"{flight_number} found but no position data (not airborne yet)")
+                print(f"{display_name} ({callsign}) found but no position data")
 
     data["updated"] = datetime.now(timezone.utc).isoformat()
     save_positions(data)
