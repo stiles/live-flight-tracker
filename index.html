@@ -311,8 +311,20 @@
         .leg-arrived {
             font-size: 9px;
             font-weight: 600;
-            color: #0d9488;
-            background: rgba(13, 148, 136, 0.1);
+            color: #fff;
+            background: #0d9488;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            letter-spacing: 0.02em;
+        }
+        
+        .leg-en-route {
+            font-size: 9px;
+            font-weight: 600;
+            color: #fff;
+            background: #C8413C;
             padding: 1px 5px;
             border-radius: 3px;
             margin-left: 6px;
@@ -322,11 +334,6 @@
         
         .leg-item.past .leg-cities {
             color: #aaa;
-        }
-        
-        .leg-item.past .leg-arrived {
-            color: #999;
-            background: rgba(0,0,0,0.05);
         }
         
         .leg-item.active .leg-cities {
@@ -507,12 +514,17 @@
                 const flightLabel = leg.flight_number || 'TBD';
                 const depTime = formatLegTime(leg.depart);
                 const arrTime = formatLegTime(leg.arrive);
-                const arrivedBadge = landed ? `<span class="leg-arrived">Arrived</span>` : '';
+                let badge = '';
+                if (landed) {
+                    badge = `<span class="leg-arrived">Arrived</span>`;
+                } else if (posStatus === 'en_route') {
+                    badge = `<span class="leg-en-route">En route</span>`;
+                }
                 
                 div.innerHTML = `
                     <div class="leg-date">${dateStr}</div>
                     <div class="leg-route">
-                        <div class="leg-cities">${leg.origin.code} → ${leg.destination.code} ${arrivedBadge}</div>
+                        <div class="leg-cities">${leg.origin.code} → ${leg.destination.code} ${badge}</div>
                         <div class="leg-flight">${flightLabel} · ${leg.airline}</div>
                         <div class="leg-times">${depTime} – ${arrTime}</div>
                     </div>
@@ -868,25 +880,33 @@
         
         function fitMapBounds(data) {
             const bounds = new mapboxgl.LngLatBounds();
+            const anyEnRoute = hasActiveFlights(data);
             
-            Object.keys(data.flights).forEach(legId => {
-                const flight = data.flights[legId];
-                const positions = flight.positions || [];
-                const routeParts = flight.route.split('-');
-                const origin = AIRPORTS[routeParts[0]];
-                const dest = AIRPORTS[routeParts[routeParts.length - 1]];
-                
-                if (positions.length > 0) {
-                    positions.forEach(p => bounds.extend([p.lon, p.lat]));
-                    if (dest) bounds.extend(dest);
-                } else {
+            if (anyEnRoute) {
+                Object.keys(data.flights).forEach(legId => {
+                    const flight = data.flights[legId];
+                    if (flightStatus(flight) !== 'en_route') return;
+                    const positions = flight.positions || [];
+                    const routeParts = flight.route.split('-');
+                    const origin = AIRPORTS[routeParts[0]];
+                    const dest = AIRPORTS[routeParts[routeParts.length - 1]];
                     if (origin) bounds.extend(origin);
                     if (dest) bounds.extend(dest);
-                }
-            });
+                    positions.forEach(p => bounds.extend([p.lon, p.lat]));
+                });
+            } else {
+                const landed = getLastLandedLeg();
+                const next = getNextLeg();
+                if (landed) bounds.extend(AIRPORTS[landed.destination.code]);
+                if (next) bounds.extend(AIRPORTS[next.origin.code]);
+                if (next) bounds.extend(AIRPORTS[next.destination.code]);
+            }
             
             if (!bounds.isEmpty()) {
-                map.fitBounds(bounds, { padding: 60, maxZoom: 8 });
+                map.fitBounds(bounds, {
+                    padding: { top: 80, bottom: 200, left: 40, right: 40 },
+                    maxZoom: 3.2
+                });
             }
         }
         
