@@ -138,7 +138,7 @@
         
         .arrived {
             font-size: 11px;
-            color: #2d6a4f;
+            color: #0d9488;
             font-weight: 600;
             margin-top: 2px;
         }
@@ -148,6 +148,65 @@
             color: #888;
             margin-top: 4px;
             line-height: 1.5;
+        }
+        
+        .next-up {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            border-left: 3px solid #D4960E;
+        }
+        
+        .next-up .next-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        
+        .next-up .next-route {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .next-up .next-detail {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+        }
+        
+        .next-up .next-countdown {
+            font-size: 13px;
+            font-weight: 600;
+            color: #D4960E;
+            margin-top: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .on-ground {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 6px;
+            border-left: 3px solid #0d9488;
+            margin-bottom: 8px;
+        }
+        
+        .on-ground .ground-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #0d9488;
+            margin-bottom: 2px;
+        }
+        
+        .on-ground .ground-city {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
         }
         
         .status {
@@ -252,8 +311,8 @@
         .leg-arrived {
             font-size: 9px;
             font-weight: 600;
-            color: #2d6a4f;
-            background: rgba(45, 106, 79, 0.1);
+            color: #0d9488;
+            background: rgba(13, 148, 136, 0.1);
             padding: 1px 5px;
             border-radius: 3px;
             margin-left: 6px;
@@ -462,13 +521,78 @@
             });
         }
         
+        function getNextLeg() {
+            if (!itinerary) return null;
+            const now = new Date();
+            return itinerary.legs.find(leg => new Date(leg.depart) > now) || null;
+        }
+        
+        function getLastLandedLeg() {
+            if (!itinerary) return null;
+            const now = new Date();
+            let last = null;
+            for (const leg of itinerary.legs) {
+                if (new Date(leg.arrive) < now) last = leg;
+            }
+            return last;
+        }
+        
+        function formatCountdown(ms) {
+            if (ms <= 0) return 'any moment now';
+            const totalMin = Math.floor(ms / 60000);
+            const days = Math.floor(totalMin / 1440);
+            const hours = Math.floor((totalMin % 1440) / 60);
+            const mins = totalMin % 60;
+            const parts = [];
+            if (days > 0) parts.push(`${days}d`);
+            if (hours > 0) parts.push(`${hours}h`);
+            parts.push(`${mins}m`);
+            return parts.join(' ');
+        }
+        
+        function hasActiveFlights(data) {
+            return Object.values(data.flights).some(f => flightStatus(f) === 'en_route');
+        }
+        
         function updateFlightInfo(data) {
             const container = document.getElementById('flights-container');
             container.innerHTML = '';
             
             const flightKeys = Object.keys(data.flights);
-            if (flightKeys.length === 0) {
-                container.innerHTML = '<div class="waiting">No active flights right now</div>';
+            const anyEnRoute = hasActiveFlights(data);
+            
+            if (!anyEnRoute) {
+                const landed = getLastLandedLeg();
+                const next = getNextLeg();
+                
+                if (landed) {
+                    const groundDiv = document.createElement('div');
+                    groundDiv.className = 'on-ground';
+                    groundDiv.innerHTML = `
+                        <div class="ground-label">On the ground</div>
+                        <div class="ground-city">${landed.destination.name} (${landed.destination.code})</div>
+                    `;
+                    container.appendChild(groundDiv);
+                }
+                
+                if (next) {
+                    const ms = new Date(next.depart) - new Date();
+                    const nextDiv = document.createElement('div');
+                    nextDiv.className = 'next-up';
+                    const flightLabel = next.flight_number || 'TBD';
+                    const depTime = formatLegTime(next.depart);
+                    nextDiv.innerHTML = `
+                        <div class="next-label">Next flight</div>
+                        <div class="next-route">${next.origin.code} → ${next.destination.code}</div>
+                        <div class="next-detail">${flightLabel} · departs ${depTime}</div>
+                        <div class="next-countdown">${formatCountdown(ms)}</div>
+                    `;
+                    container.appendChild(nextDiv);
+                }
+                
+                if (!landed && !next && flightKeys.length === 0) {
+                    container.innerHTML = '<div class="waiting">No active flights right now</div>';
+                }
             }
             
             flightKeys.forEach(legId => {
@@ -477,6 +601,8 @@
                 const lastPos = positions[positions.length - 1];
                 const status = flightStatus(flight);
                 const color = getFlightColor(legId);
+                
+                if (status !== 'en_route') return;
                 
                 const div = document.createElement('div');
                 const statusClass = status === 'landed' ? ' landed' : status === 'en_route' ? ' en-route' : '';
@@ -545,6 +671,68 @@
             if (!map.isStyleLoaded || !map.isStyleLoaded()) return;
             if (map.getLayer(`plane-${flightNum}`)) map.removeLayer(`plane-${flightNum}`);
             if (map.getSource(`plane-${flightNum}`)) map.removeSource(`plane-${flightNum}`);
+        }
+        
+        let currentLocationMarker = null;
+        
+        function updateLocationPin(data) {
+            if (hasActiveFlights(data)) {
+                if (currentLocationMarker) {
+                    currentLocationMarker.remove();
+                    currentLocationMarker = null;
+                }
+                return;
+            }
+            
+            const landed = getLastLandedLeg();
+            if (!landed) return;
+            
+            const coords = AIRPORTS[landed.destination.code];
+            if (!coords) return;
+            
+            if (currentLocationMarker) {
+                currentLocationMarker.setLngLat(coords);
+            } else {
+                const el = document.createElement('div');
+                el.style.cssText = 'width:14px;height:14px;background:#0d9488;border:2.5px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);';
+                currentLocationMarker = new mapboxgl.Marker({ element: el })
+                    .setLngLat(coords)
+                    .addTo(map);
+            }
+        }
+        
+        let lastActiveState = null;
+        
+        function autoZoom(data) {
+            const enRouteLeg = Object.keys(data.flights).find(id => flightStatus(data.flights[id]) === 'en_route');
+            const stateKey = enRouteLeg || 'ground';
+            
+            if (stateKey === lastActiveState) return;
+            lastActiveState = stateKey;
+            
+            const bounds = new mapboxgl.LngLatBounds();
+            
+            if (enRouteLeg) {
+                const flight = data.flights[enRouteLeg];
+                const positions = flight.positions || [];
+                const routeParts = flight.route.split('-');
+                const origin = AIRPORTS[routeParts[0]];
+                const dest = AIRPORTS[routeParts[routeParts.length - 1]];
+                
+                if (origin) bounds.extend(origin);
+                if (dest) bounds.extend(dest);
+                positions.forEach(p => bounds.extend([p.lon, p.lat]));
+            } else {
+                const landed = getLastLandedLeg();
+                const next = getNextLeg();
+                if (landed) bounds.extend(AIRPORTS[landed.destination.code]);
+                if (next) bounds.extend(AIRPORTS[next.origin.code]);
+                if (next) bounds.extend(AIRPORTS[next.destination.code]);
+            }
+            
+            if (!bounds.isEmpty()) {
+                map.flyTo ? map.fitBounds(bounds, { padding: 80, maxZoom: 8, duration: 1500 }) : map.fitBounds(bounds, { padding: 80, maxZoom: 8 });
+            }
         }
         
         function updateMap(data) {
@@ -721,9 +909,15 @@
                 updateFlightInfo(data);
                 renderItinerary();
                 updateMap(data);
+                updateLocationPin(data);
                 if (!initialFitDone) {
                     fitMapBounds(data);
                     initialFitDone = true;
+                    lastActiveState = hasActiveFlights(data)
+                        ? Object.keys(data.flights).find(id => flightStatus(data.flights[id]) === 'en_route')
+                        : 'ground';
+                } else {
+                    autoZoom(data);
                 }
             } catch (error) {
                 console.error('Error fetching positions:', error);
@@ -801,6 +995,11 @@
             addAirportMarkers();
             
             setInterval(fetchPositions, 60000);
+            setInterval(() => {
+                if (flightData && !hasActiveFlights(flightData)) {
+                    updateFlightInfo(flightData);
+                }
+            }, 30000);
         });
     </script>
 </body>
