@@ -244,7 +244,43 @@
                 const flight = data.flights[flightNum];
                 const positions = flight.positions;
                 
-                if (positions.length > 0) {
+                if (positions.length === 0) {
+                    const routeParts = flight.route.split('-');
+                    const origin = AIRPORTS[routeParts[0]];
+                    const dest = AIRPORTS[routeParts[1]];
+                    
+                    if (origin && dest) {
+                        if (!map.getSource(`planned-${flightNum}`)) {
+                            map.addSource(`planned-${flightNum}`, {
+                                type: 'geojson',
+                                data: {
+                                    type: 'Feature',
+                                    geometry: {
+                                        type: 'LineString',
+                                        coordinates: greatCircle(origin, dest)
+                                    }
+                                }
+                            });
+                            
+                            map.addLayer({
+                                id: `planned-${flightNum}`,
+                                type: 'line',
+                                source: `planned-${flightNum}`,
+                                paint: {
+                                    'line-color': '#999',
+                                    'line-width': 1,
+                                    'line-dasharray': [4, 4],
+                                    'line-opacity': 0.5
+                                }
+                            });
+                        }
+                    }
+                } else {
+                    if (map.getLayer(`planned-${flightNum}`)) {
+                        map.removeLayer(`planned-${flightNum}`);
+                        map.removeSource(`planned-${flightNum}`);
+                    }
+                    
                     const coords = positions.map(p => [p.lon, p.lat]);
                     const lastPos = positions[positions.length - 1];
                     
@@ -308,18 +344,13 @@
                         
                         map.addLayer({
                             id: `plane-${flightNum}`,
-                            type: 'symbol',
+                            type: 'circle',
                             source: `plane-${flightNum}`,
-                            layout: {
-                                'icon-image': 'airport',
-                                'icon-size': 1.5,
-                                'icon-rotate': ['get', 'heading'],
-                                'icon-rotation-alignment': 'map',
-                                'icon-allow-overlap': true,
-                                'icon-ignore-placement': true
-                            },
                             paint: {
-                                'icon-color': FLIGHT_COLORS[flightNum]
+                                'circle-radius': 8,
+                                'circle-color': FLIGHT_COLORS[flightNum],
+                                'circle-stroke-width': 2,
+                                'circle-stroke-color': '#fff'
                             }
                         });
                     }
@@ -341,43 +372,6 @@
         }
         
         map.on('load', () => {
-            map.addSource('planned-routes', {
-                type: 'geojson',
-                data: {
-                    type: 'FeatureCollection',
-                    features: [
-                        {
-                            type: 'Feature',
-                            properties: { flight: 'AA621' },
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: greatCircle(AIRPORTS.LAX, AIRPORTS.MIA)
-                            }
-                        },
-                        {
-                            type: 'Feature',
-                            properties: { flight: 'AA917' },
-                            geometry: {
-                                type: 'LineString',
-                                coordinates: greatCircle(AIRPORTS.MIA, AIRPORTS.LIM)
-                            }
-                        }
-                    ]
-                }
-            });
-            
-            map.addLayer({
-                id: 'planned-routes',
-                type: 'line',
-                source: 'planned-routes',
-                paint: {
-                    'line-color': '#999',
-                    'line-width': 1,
-                    'line-dasharray': [4, 4],
-                    'line-opacity': 0.5
-                }
-            });
-            
             Object.keys(AIRPORTS).forEach(code => {
                 const coords = AIRPORTS[code];
                 map.addSource(`airport-${code}`, {
