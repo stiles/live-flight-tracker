@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Fetch live flight positions from FlightRadar24 API using pyfr24 and append to positions.json
+Fetch full flight tracks from FlightRadar24 API using pyfr24 and write to positions.json.
+Pulls the complete track history each run so gaps in cron scheduling don't matter.
 """
 import json
 import os
@@ -16,6 +17,7 @@ CALLSIGN_MAP = {
     "AAL0917": {"name": "AA917", "route": "MIA-LIM"},
 }
 DATA_FILE = "data/positions.json"
+SAMPLE_INTERVAL = 30  # seconds between sampled points
 
 
 def load_positions():
@@ -36,11 +38,47 @@ def save_positions(data):
         json.dump(data, f, indent=2)
 
 
-def fetch_positions(api):
+def get_live_fr24_ids(api):
+    """Get FR24 flight IDs for any currently airborne tracked flights."""
     url = "https://fr24api.flightradar24.com/api/live/flight-positions/full"
     params = {"callsigns": ",".join(CALLSIGNS)}
     response = api._make_request("get", url, headers=api.session.headers, params=params)
-    return response.json()
+    result = response.json()
+
+    ids = {}
+    for flight in result.get("data", []):
+        callsign = flight.get("callsign", "").strip()
+        fr24_id = flight.get("fr24_id")
+        if callsign in CALLSIGNS and fr24_id:
+            display_name = CALLSIGN_MAP[callsign]["name"]
+            ids[display_name] = fr24_id
+    return ids
+
+
+def fetch_full_track(api, fr24_id):
+    """Pull the full ADS-B track for a flight and sample it down."""
+    tracks_response = api.get_flight_tracks(fr24_id)
+    if not tracks_response or not tracks_response[0].get("tracks"):
+        return []
+
+    raw_tracks = tracks_response[0]["tracks"]
+    sampled = []
+    last_ts = None
+
+    for t in raw_tracks:
+        ts = datetime.fromisoformat(t["timestamp"].replace("Z", "+00:00"))
+        if last_ts is None or (ts - last_ts).total_seconds() >= SAMPLE_INTERVAL:
+            sampled.append({
+                "ts": int(ts.timestamp()),
+                "lat": t["lat"],
+                "lon": t["lon"],
+                "alt": t["alt"],
+                "speed": t["gspeed"],
+                "heading": t["track"],
+            })
+            last_ts = ts
+
+    return sampled
 
 
 def main():
@@ -50,37 +88,23 @@ def main():
 
     api = FR24API(API_KEY)
     data = load_positions()
-    response = fetch_positions(api)
 
-    flights_in_response = response.get("data", [])
+    live_ids = get_live_fr24_ids(api)
 
-    if not flights_in_response:
-        print("No flights found in API response")
+    if not live_ids:
+        print("No tracked flights currently airborne")
         data["updated"] = datetime.now(timezone.utc).isoformat()
         save_positions(data)
         return
 
-    for flight in flights_in_response:
-        callsign = flight.get("callsign", "").strip()
-
-        if callsign in CALLSIGNS:
-            display_name = CALLSIGN_MAP[callsign]["name"]
-            lat = flight.get("lat")
-            lon = flight.get("lon")
-
-            if lat and lon:
-                position = {
-                    "ts": int(datetime.now(timezone.utc).timestamp()),
-                    "lat": lat,
-                    "lon": lon,
-                    "alt": flight.get("alt"),
-                    "speed": flight.get("gspeed"),
-                    "heading": flight.get("track"),
-                }
-                data["flights"][display_name]["positions"].append(position)
-                print(f"Added position for {display_name}: lat={lat:.5f}, lon={lon:.5f}, alt={flight.get('alt')} ft")
-            else:
-                print(f"{display_name} found but no position data (not airborne yet)")
+    for display_name, fr24_id in live_ids.items():
+        print(f"Fetching full track for {display_name} (fr24_id={fr24_id})")
+        positions = fetch_full_track(api, fr24_id)
+        if positions:
+            data["flights"][display_name]["positions"] = positions
+            print(f"  {len(positions)} positions, latest: lat={positions[-1]['lat']:.5f}, lon={positions[-1]['lon']:.5f}")
+        else:
+            print(f"  No track data available")
 
     data["updated"] = datetime.now(timezone.utc).isoformat()
     save_positions(data)
