@@ -143,7 +143,14 @@ def main():
         if live_id:
             flight["status"] = "en_route"
         elif flight.get("positions"):
-            flight["status"] = "landed"
+            last_ts = flight["positions"][-1]["ts"]
+            age_minutes = (datetime.now(timezone.utc).timestamp() - last_ts) / 60
+            if age_minutes < 30:
+                flight["status"] = "en_route"
+            else:
+                flight["status"] = "landed"
+        else:
+            flight["status"] = "scheduled"
 
     positions["updated"] = datetime.now(timezone.utc).isoformat()
     save_positions(positions)
