@@ -525,6 +525,7 @@
                 const posStatus = flightData && flightData.flights[leg.id]
                     ? flightStatus(flightData.flights[leg.id])
                     : null;
+                const posData = flightData && flightData.flights[leg.id] ? flightData.flights[leg.id] : null;
                 const landed = posStatus === 'landed' || isPast;
                 
                 const div = document.createElement('div');
