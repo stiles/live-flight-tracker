@@ -65,3 +65,7 @@ The tracker will update every 5 minutes via GitHub Actions. Share your Pages URL
 ## Data storage
 
 Flight positions are stored in `data/positions.json`.
+
+## Test locally
+
+Run `python3 -m http.server 8000`

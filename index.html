@@ -217,6 +217,13 @@
             color: #333;
         }
         
+        .approx-note {
+            font-size: 11px;
+            color: #888;
+            margin-top: 6px;
+            font-style: italic;
+        }
+        
         .status {
             font-size: 10px;
             color: #aaa;
@@ -534,11 +541,13 @@
                     badge = `<span class="leg-en-route">En route</span>`;
                 }
                 
+                const approxNote = posData?.approximated ? ' <span style="color: #aaa; font-size: 10px; font-style: italic;">(approximated)</span>' : '';
+                
                 div.innerHTML = `
                     <div class="leg-date">${dateStr}</div>
                     <div class="leg-route">
                         <div class="leg-cities">${leg.origin.code} → ${leg.destination.code} ${badge}</div>
-                        <div class="leg-flight">${flightLabel} · ${leg.airline}</div>
+                        <div class="leg-flight">${flightLabel} · ${leg.airline}${approxNote}</div>
                         <div class="leg-times">${depTime} – ${arrTime}</div>
                     </div>
                 `;
@@ -654,6 +663,7 @@
                 if (status === 'landed' && lastPos) {
                     const landedTime = new Date(lastPos.ts * 1000);
                     const timeStr = landedTime.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                    const approxNote = flight.approximated ? '<div class="approx-note">Route approximated from similar flight</div>' : '';
                     div.innerHTML = `
                         <div class="flight-header">
                             <h2>${displayName}</h2>
@@ -661,6 +671,7 @@
                         </div>
                         <div class="arrived">Arrived ${dest}</div>
                         <div class="arrived-detail">Last track ${timeStr}</div>
+                        ${approxNote}
                     `;
                 } else if (status === 'en_route' && lastPos) {
                     const alt = lastPos.alt ? Math.round(lastPos.alt).toLocaleString() : '—';
