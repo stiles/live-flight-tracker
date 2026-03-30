@@ -1,6 +1,6 @@
 # Live Flight Tracker
 
-Track AA621 (LAX→MIA) and AA917 (MIA→LIM) in real-time.
+Track and mapping flights in real-time using the Flightradar24 API and Mapbox. 
 
 ## Setup
 
@@ -60,16 +60,8 @@ git push -u origin main
    - Select "Collect flight positions"
    - Click "Run workflow"
 
-The tracker will update every 3 minutes via GitHub Actions. Share your Pages URL with the families.
+The tracker will update every 5 minutes via GitHub Actions. Share your Pages URL with the families.
 
 ## Data storage
 
-Flight positions are stored in `data/positions.json`. Per FR24 API terms, data must be deleted after 30 days.
-
-## Cost
-
-The FR24 API charges 6 credits per flight per call. With 2 flights collected every 3 minutes:
-- ~20 calls per hour = 240 credits/hour
-- ~480 calls per day = ~5,760 credits/day
-
-The Explorer plan includes 100,000 credits/month.
+Flight positions are stored in `data/positions.json`.
