@@ -49,8 +49,8 @@
       "origin": {"code": "CUZ", "name": "Cusco"},
       "destination": {"code": "PEM", "name": "Puerto Maldonado"},
       "date": "2026-04-02",
-      "depart": "2026-04-02T08:25:00-05:00",
-      "arrive": "2026-04-02T09:25:00-05:00",
+      "depart": "2026-04-02T06:25:00-05:00",
+      "arrive": "2026-04-02T07:25:00-05:00",
       "notes": "Fly to Amazon basin, motorized canoe into jungle"
     },
     {
