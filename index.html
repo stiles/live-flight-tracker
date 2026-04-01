@@ -531,7 +531,7 @@
                 const div = document.createElement('div');
                 div.className = 'leg-item' + (landed ? ' past' : '') + (isActive ? ' active' : '');
                 
-                const dateStr = new Date(leg.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                const dateStr = new Date(leg.depart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                 const flightLabel = leg.flight_number || 'TBD';
                 const depTime = formatLegTime(leg.depart);
                 const arrTime = formatLegTime(leg.arrive);
