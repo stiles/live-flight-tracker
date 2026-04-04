@@ -69,8 +69,8 @@
     {
       "id": "CUZ-LIM",
       "airline": "SKY Airline Peru",
-      "flight_number": null,
-      "callsign": null,
+      "flight_number": "H25722",
+      "callsign": "SKU5722",
       "route": "CUZ-LIM",
       "origin": {"code": "CUZ", "name": "Cusco"},
       "destination": {"code": "LIM", "name": "Lima"},
