@@ -9548,7 +9548,22 @@
       ],
       "status": "landed",
       "approximated": true
+    },
+    "H85722-PEM-CUZ": {
+      "route": "PEM-CUZ",
+      "positions": [],
+      "status": "scheduled"
+    },
+    "CUZ-LIM": {
+      "route": "CUZ-LIM",
+      "positions": [],
+      "status": "scheduled"
+    },
+    "AA988": {
+      "route": "LIM-MIA",
+      "positions": [],
+      "status": "scheduled"
     }
   },
-  "updated": "2026-03-30T14:42:21.202296+00:00"
+  "updated": "2026-04-04T15:04:39.877396+00:00"
 }
