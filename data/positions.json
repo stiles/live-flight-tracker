@@ -4,7 +4,22 @@
       "route": "MIA-LAX",
       "positions": [],
       "status": "scheduled"
+    },
+    "H85722-PEM-CUZ": {
+      "route": "PEM-CUZ",
+      "positions": [],
+      "status": "scheduled"
+    },
+    "CUZ-LIM": {
+      "route": "CUZ-LIM",
+      "positions": [],
+      "status": "scheduled"
+    },
+    "AA988": {
+      "route": "LIM-MIA",
+      "positions": [],
+      "status": "scheduled"
     }
   },
-  "updated": "2026-04-05T17:56:46.365393+00:00"
+  "updated": "2026-04-05T17:59:46.617203+00:00"
 }
